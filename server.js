@@ -9,14 +9,13 @@ import { Pool } from 'pg';
 import productRoutes from './routes/productRoutes.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.VITE_PORT || 3000;
 
 const pool = new Pool({
     user: 'postgres',
     host: 'localhost',
     database: 'customerFeedbackPortal',
-    password: 'postgres',
-    dialect: 'postgres',
+    password: '1234aMa',
     port: 5432
 })
 
@@ -46,16 +45,19 @@ app.use(cors());
 app.use(helmet());
 app.use(morgan('dev'));
 
-app.get('/api', (req, res, next) => {
+app.get('/api/userData', (req, res) => {
     console.log('Test API data')
-    pool.query('SELECT * FROM userTable')
+    pool.query('SELECT * FROM public."userTable"')
         .then(userData => {
-            console.log(userData);
             res.send(userData.rows)
         })
 })
 
-app.use('/api/products', productRoutes);
+app.use('/api/products', (req, res) => {
+    pool.query('SELECT * FROM public."productsTable"').then((productsData) => {
+        res.send(productsData.rows);
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
