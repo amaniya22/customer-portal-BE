@@ -3,21 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
 
-import { Pool } from 'pg';
+dotenv.config();
 
 import productRoutes from './routes/productRoutes.js';
+import pool from './config/db.js';
 
 const app = express();
 const PORT = process.env.VITE_PORT || 3000;
-
-const pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'customerFeedbackPortal',
-    password: '1234aMa',
-    port: 5432
-})
 
 /* To handle the HTTP Methods Body Parser 
    is used, Generally used to extract the 
@@ -26,19 +20,6 @@ const pool = new Pool({
 */
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }))
-
-pool.connect((err, client, release) => {
-    if (err) {
-        return console.error('Error acquiring client', err.stack)
-    }
-    client.query('SELECT NOW()', (err, result) => {
-        release()
-        if (err) {
-            return console.error('Error executing client', err.stack)
-        }
-        console.log('Connected to Database !')
-    })
-})
 
 app.use(express.json());
 app.use(cors());
@@ -53,7 +34,7 @@ app.get('/api/userData', (req, res) => {
         })
 })
 
-app.use('/api/products', (req, res) => {
+app.get('/api/products', (req, res) => {
     pool.query('SELECT * FROM public."productsTable"').then((productsData) => {
         res.send(productsData.rows);
     });
