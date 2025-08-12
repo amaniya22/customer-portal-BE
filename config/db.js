@@ -30,4 +30,7 @@ pool.connect((err, client, release) => {
   });
 });
 
+
+export const query = (text, params) => pool.query(text, params);
+
 export default pool;
