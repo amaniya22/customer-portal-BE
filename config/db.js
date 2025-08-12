@@ -1,11 +1,20 @@
+import dotenv from 'dotenv';
 import { Pool } from "pg";
 
+dotenv.config();
+
+const DB_USER = process.env.PG_USER;
+const DB_HOST = process.env.PG_HOST;
+const DB_NAME = process.env.PG_DB;
+const DB_PASS = process.env.PG_PASS;
+const DB_PORT = process.env.PG_PORT;
+
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'customerFeedbackPortal',
-  password: '1234aMa',
-  port: 5432,
+  user: DB_USER,
+  host: DB_HOST,
+  database: DB_NAME,
+  password: DB_PASS,
+  port: DB_PORT,
 });
 
 pool.connect((err, client, release) => {

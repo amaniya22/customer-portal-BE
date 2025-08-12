@@ -13,7 +13,7 @@ import errorHandling from './middlewares/errorHandler.js';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.VITE_PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
 /* To handle the HTTP Methods Body Parser 
    is used, Generally used to extract the 
