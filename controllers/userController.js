@@ -15,7 +15,7 @@ const REFRESH_COOKIE_NAME = "cookie";
 const cookieOptions = {
   httpOnly: true,
   secure: "production",
-  sameSite: "lax",
+  sameSite: "strict",
   path: "/api/auth",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
@@ -32,7 +32,7 @@ const handleResponse = (res, status, message, data = null) => {
 export const getAllUsers = async (req, res, next) => {
   try {
     const users = await query(`SELECT * FROM public."userTable"`);
-    handleResponse(res, 200, "Users fetched successfully", users);
+    return handleResponse(res, 200, "Users fetched successfully", users);
   } catch (err) {
     next(err);
   }
@@ -45,7 +45,7 @@ export const addUser = async (req, res) => {
 
   // Check if all the fields are filled
   if (!username || !user_email || !user_pass || !user_fname || !user_lname) {
-    handleResponse(res, 400, "Missing fields");
+    return handleResponse(res, 400, "Missing fields");
   }
 
   try {
@@ -56,7 +56,7 @@ export const addUser = async (req, res) => {
     );
 
     if (existingUser.rows.length) {
-      handleResponse(res, 409, "Email or Username already in use");
+      return handleResponse(res, 409, "Email or Username already in use");
     }
 
     // hash the password
@@ -101,17 +101,16 @@ export const addUser = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    handleResponse(res, 500, "Server error");
+    return handleResponse(res, 500, "Server error");
   }
 };
 
 export const logUser = async (req, res) => {
   const { username, password } = req.body;
-  console.log(req.body)
 
   // Check if all the fields are filled
   if (!username || !password) {
-    handleResponse(res, 400, "Missing fields");
+    return handleResponse(res, 400, "Missing fields");
   }
 
   try {
@@ -121,8 +120,8 @@ export const logUser = async (req, res) => {
     );
 
     const user = loggedUser.rows[0];
-    if (!user || (!await bcrypt.compare(password, user.user_pass))) {
-      handleResponse(res, 401, "Invalid credentials");
+    if (!user || !(await bcrypt.compare(password, user.user_pass))) {
+      return handleResponse(res, 401, "Invalid credentials");
     }
 
     // generate Tokens
@@ -140,7 +139,11 @@ export const logUser = async (req, res) => {
     );
 
     // set httpOnly cookie containing raw refresh token
-    res.cookie(REFRESH_COOKIE_NAME, refreshToken, cookieOptions);
+    res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "strict",
+    });
 
     return res.json({
       user: {
@@ -150,12 +153,11 @@ export const logUser = async (req, res) => {
         user_lname: user.user_lname,
         user_email: user.user_email,
         user_role: user.user_role,
-        refresh_token_hash: user.refresh_token_hash,
       },
       accessToken,
     });
   } catch (err) {
-    handleResponse(res, 500, "Server error");
+    return handleResponse(res, 500, "Server error");
   }
 };
 
@@ -164,23 +166,23 @@ export const refreshAuth = async (req, res) => {
     const token = req.cookies[REFRESH_COOKIE_NAME];
     // If the token from the cookies is not valid
     if (!token) {
-      handleResponse(res, 401, "No refresh token");
+      return handleResponse(res, 401, "No refresh token");
     }
 
     let payload;
     try {
       payload = verifyRefreshToken(token); //set payload to whether the token is valid or expired
     } catch (err) {
-      handleResponse(res, 401, "Invalid refresh token");
+      return handleResponse(res, 401, "Invalid refresh token");
     }
 
     const userResponse = await query(
-      `SELECT user_id, user_role, refresh_token_hash FROM public."userTable" WHERE user_id=$1`,
+      `SELECT * FROM public."userTable" WHERE user_id=$1`,
       [payload.user_id]
     );
     const user = userResponse.rows[0];
     if (!user || !user.refresh_token_hash) {
-      handleResponse(res, 401, "Refresh token not recognized");
+      return handleResponse(res, 401, "Refresh token not recognized");
     }
 
     // verify token against stored hash token
@@ -217,7 +219,7 @@ export const refreshAuth = async (req, res) => {
       user: { user_id: user.user_id, user_role: user.user_role },
     });
   } catch (err) {
-    handleResponse(res, 500, "Server error");
+    return handleResponse(res, 500, "Server error");
   }
 };
 
@@ -243,6 +245,6 @@ export const logOutUser = async (req, res) => {
     });
     return res.json({ message: "Logged out" });
   } catch (err) {
-    handleResponse(res, 500, "Server error");
+    return handleResponse(res, 500, "Server error");
   }
 };
