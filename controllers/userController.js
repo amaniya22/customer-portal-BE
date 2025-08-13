@@ -7,7 +7,6 @@ import {
   verifyRefreshToken,
 } from "../utils/jwt.js";
 import dotenv from "dotenv";
-import { token } from "morgan";
 
 dotenv.config();
 
@@ -21,7 +20,7 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-// Standardized response function
+// Standardized response handler function
 const handleResponse = (res, status, message, data = null) => {
   res.status(status).json({
     status,
@@ -46,7 +45,7 @@ export const addUser = async (req, res) => {
 
   // Check if all the fields are filled
   if (!username || !user_email || !user_pass || !user_fname || !user_lname) {
-    return res.status(400).json({ message: "Missing fields" });
+    handleResponse(res, 400, "Missing fields");
   }
 
   try {
@@ -55,10 +54,9 @@ export const addUser = async (req, res) => {
       `SELECT user_id FROM public."userTable" WHERE user_email = $1 OR username = $2`,
       [user_email, username]
     );
-    if (existingUser.rows.length > 0) {
-      return res
-        .status(409)
-        .json({ message: "Email or Username already in use" });
+
+    if (existingUser.rows.length) {
+      handleResponse(res, 409, "Email or Username already in use");
     }
 
     // hash the password
@@ -68,11 +66,11 @@ export const addUser = async (req, res) => {
     const regUser = await query(
       `INSERT INTO public."userTable"(
 	username, user_fname, user_lname, user_email, user_pass, user_role)
-	VALUES ($1, $2, $3, $4, $5, $6);`,
+	VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;`,
       [username, user_fname, user_lname, user_email, hashedPassword, role]
     );
 
-    const user = regUser.row[0];
+    const user = regUser.rows[0];
 
     // generate Tokens
     const accessToken = signAccessToken({
@@ -84,16 +82,26 @@ export const addUser = async (req, res) => {
     // hashed refresh token
     const refreshHashed = await bcrypt.hash(refreshToken, 10);
     await query(
-      `UPDATE public."userTable" SET refresh_token_hash = $1 WHERE user_id = $2`,
+      `UPDATE public."userTable" SET refresh_token_hash = $1 WHERE user_id = $2 RETURNING *`,
       [refreshHashed, user.user_id]
     );
 
     // set httpOnly cookie containing raw refresh token
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, cookieOptions);
-    return res.status(201).json({ user, accessToken });
+    return res.status(200).json({
+      accessToken, // JWT access token
+      user: {
+        user_id: user.user_id,
+        username: user.username,
+        user_fname: user.user_fname,
+        user_lname: user.user_lname,
+        user_email: user.user_email,
+        user_role: user.user_role,
+      },
+    });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "Server error" });
+    handleResponse(res, 500, "Server error");
   }
 };
 
@@ -102,7 +110,7 @@ export const logUser = async (req, res) => {
 
   // Check if all the fields are filled
   if (!username || !user_pass) {
-    return res.status(400).json({ message: "Missing fields" });
+    handleResponse(res, 400, "Missing fields");
   }
 
   try {
@@ -110,15 +118,16 @@ export const logUser = async (req, res) => {
       `SELECT user_id, username, user_pass, user_role FROM public."userTable" WHERE username=$1`,
       [username]
     );
+
     const user = loggedUser.rows[0];
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      handleResponse(res, 401, "Invalid credentials");
     }
 
     // Check if the password is valid
     const passwordValid = await bcrypt.compare(user_pass, user.user_pass);
     if (!passwordValid) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      handleResponse(res, 401, "Invalid credentials");
     }
 
     // generate Tokens
@@ -146,11 +155,12 @@ export const logUser = async (req, res) => {
         user_lname: user.user_lname,
         user_email: user.user_email,
         user_role: user.user_role,
+        refresh_token_hash: user.refresh_token_hash,
       },
       accessToken,
     });
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    handleResponse(res, 500, "Server error");
   }
 };
 
@@ -159,23 +169,23 @@ export const refreshAuth = async (req, res) => {
     const token = req.cookies[REFRESH_COOKIE_NAME];
     // If the token from the cookies is not valid
     if (!token) {
-      return res.status(401).json({ message: "No refresh token" });
+      handleResponse(res, 401, "No refresh token");
     }
 
     let payload;
     try {
       payload = verifyRefreshToken(token); //set payload to whether the token is valid or expired
     } catch (err) {
-      return res.status(401).json({ message: "Invalid refresh token" });
+      handleResponse(res, 401, "Invalid refresh token");
     }
 
     const userResponse = await query(
       `SELECT user_id, user_role, refresh_token_hash FROM public."userTable" WHERE user_id=$1`,
       [payload.user_id]
     );
-    const user = userRes.rows[0];
+    const user = userResponse.rows[0];
     if (!user || !user.refresh_token_hash) {
-      return res.status(401).json({ message: "Refresh token not recognized" });
+      handleResponse(res, 401, "Refresh token not recognized");
     }
 
     // verify token against stored hash token
@@ -212,7 +222,7 @@ export const refreshAuth = async (req, res) => {
       user: { user_id: user.user_id, user_role: user.user_role },
     });
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    handleResponse(res, 500, "Server error");
   }
 };
 
@@ -238,6 +248,6 @@ export const logOutUser = async (req, res) => {
     });
     return res.json({ message: "Logged out" });
   } catch (err) {
-    return res.status(500).json({ message: "Server error" });
+    handleResponse(res, 500, "Server error");
   }
 };

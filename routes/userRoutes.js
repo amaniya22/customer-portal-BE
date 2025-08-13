@@ -1,7 +1,10 @@
 import express from "express";
+import cookieParser from "cookie-parser";
 import { addUser, getAllUsers, logOutUser, logUser, refreshAuth } from "../controllers/userController.js";
 
 const router = express.Router();
+
+router.use(cookieParser());
 
 router.get("/users", getAllUsers);
 router.post("/register", addUser);

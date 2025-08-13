@@ -1,7 +1,5 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
-import morgan from "morgan";
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 
@@ -31,12 +29,15 @@ app.use(
     credentials: true, // allow browser to send cookies
   })
 );
-app.use(helmet());
-app.use(morgan("dev"));
+
 app.use(cookieParser());
 
 app.use("/api/auth", userRoutes);
 app.use("/api", productRoutes);
+
+app.use('/', (req, res) => {
+  res.send(`Server is running on port ${PORT}`)
+})
 
 app.use(errorHandling);
 
