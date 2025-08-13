@@ -106,27 +106,22 @@ export const addUser = async (req, res) => {
 };
 
 export const logUser = async (req, res) => {
-  const { username, user_pass } = req.body;
+  const { username, password } = req.body;
+  console.log(req.body)
 
   // Check if all the fields are filled
-  if (!username || !user_pass) {
+  if (!username || !password) {
     handleResponse(res, 400, "Missing fields");
   }
 
   try {
     const loggedUser = await query(
-      `SELECT user_id, username, user_pass, user_role FROM public."userTable" WHERE username=$1`,
+      `SELECT * FROM public."userTable" WHERE username=$1`,
       [username]
     );
 
     const user = loggedUser.rows[0];
-    if (!user) {
-      handleResponse(res, 401, "Invalid credentials");
-    }
-
-    // Check if the password is valid
-    const passwordValid = await bcrypt.compare(user_pass, user.user_pass);
-    if (!passwordValid) {
+    if (!user || (!await bcrypt.compare(password, user.user_pass))) {
       handleResponse(res, 401, "Invalid credentials");
     }
 
