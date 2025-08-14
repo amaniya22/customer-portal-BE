@@ -14,9 +14,9 @@ const REFRESH_COOKIE_NAME = "cookie";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: "production",
-  sameSite: "strict",
-  path: "/api/auth",
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax",
+  path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -166,7 +166,7 @@ export const refreshAuth = async (req, res) => {
     const token = req.cookies[REFRESH_COOKIE_NAME];
     // If the token from the cookies is not valid
     if (!token) {
-      return handleResponse(res, 401, "No refresh token");
+      return handleResponse(res, 401, "No refresh token, please login");
     }
 
     let payload;
@@ -191,7 +191,7 @@ export const refreshAuth = async (req, res) => {
       // Update to avoid token leak
       await query(
         `UPDATE public."userTable" SET refresh_token_hash = NULL WHERE user_id = $1`,
-        [payload.userId]
+        [payload.user_id]
       );
       return res.status(401).json({ message: "Invalid refresh token" });
     }
@@ -216,7 +216,11 @@ export const refreshAuth = async (req, res) => {
     // return new access token and basic user info
     return res.json({
       accessToken: newAccessToken,
-      user: { user_id: user.user_id, user_role: user.user_role },
+      user: {
+        user_id: user.user_id,
+        username: user.username,
+        user_role: user.user_role,
+      },
     });
   } catch (err) {
     return handleResponse(res, 500, "Server error");

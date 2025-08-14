@@ -10,7 +10,7 @@ const handleResponse = (res, status, message, data = null) => {
 export const getProducts = async (req, res, next) => {
   try {
     const products = await query(`SELECT * FROM public."productsTable"`);
-    handleResponse(res, 200, "Successfully Fetched all products", products);
+    return handleResponse(res, 200, "Successfully Fetched all products", products.rows);
   } catch (err) {
     next(err);
   }
