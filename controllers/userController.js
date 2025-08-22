@@ -14,7 +14,7 @@ const REFRESH_COOKIE_NAME = "cookie";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: false,
   sameSite: "lax",
   path: "/",
   maxAge: 7 * 24 * 60 * 60 * 1000,
@@ -142,7 +142,7 @@ export const logUser = async (req, res) => {
     res.cookie(REFRESH_COOKIE_NAME, refreshToken, {
       httpOnly: true,
       secure: false,
-      sameSite: "strict",
+      sameSite: "lax",
     });
 
     return res.json({
@@ -178,7 +178,7 @@ export const refreshAuth = async (req, res) => {
 
     const userResponse = await query(
       `SELECT * FROM public."userTable" WHERE user_id=$1`,
-      [payload.user_id]
+      [payload.userId]
     );
     const user = userResponse.rows[0];
     if (!user || !user.refresh_token_hash) {
@@ -191,7 +191,7 @@ export const refreshAuth = async (req, res) => {
       // Update to avoid token leak
       await query(
         `UPDATE public."userTable" SET refresh_token_hash = NULL WHERE user_id = $1`,
-        [payload.user_id]
+        [payload.userId]
       );
       return res.status(401).json({ message: "Invalid refresh token" });
     }
@@ -220,6 +220,7 @@ export const refreshAuth = async (req, res) => {
         user_id: user.user_id,
         username: user.username,
         user_role: user.user_role,
+        user_fname: user.user_fname,
       },
     });
   } catch (err) {
@@ -245,7 +246,7 @@ export const logOutUser = async (req, res) => {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      path: "/api/auth",
+      path: "/",
     });
     return res.json({ message: "Logged out" });
   } catch (err) {
